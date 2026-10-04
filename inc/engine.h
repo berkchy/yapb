@@ -649,6 +649,21 @@ public:
 
 public:
   template <typename U> constexpr U As () const {
+    // ptr is null when the engine refused to create the variable, which happens
+    // when registration runs before the server cvar list is up: on xash3d that
+    // window covers the whole game dll load, and every bot cvar comes back
+    // unresolved. Reading it anyway is a null dereference (fault addr 0x4 on
+    // arm32, 0x8 on arm64) and took the game down inside GameInit. Fall back to
+    // the value this cvar was registered with instead.
+    if (!ptr) {
+      if constexpr (ystl::is_same_v<U, ystl::StringRef>) {
+        return initval_;
+      }
+      else {
+        return static_cast<U> (initval_.as<float> ());
+      }
+    }
+
     if constexpr (ystl::is_same_v<U, float>) {
       return ptr->value;
     }
@@ -682,11 +697,15 @@ public:
 
 public:
   ystl::StringRef Name () const {
-    return ptr->name;
+    // same unregistered case as As<>(): the prefixed name we registered under is
+    // the name the engine would know it by, so it is the safe answer
+    return ptr ? ptr->name : ystl::StringRef (name_.chars ());
   }
 
   void Set (float val) {
-    engfuncs.pfnCVarSetFloat (ptr->name, val);
+    if (ptr) {
+      engfuncs.pfnCVarSetFloat (ptr->name, val);
+    }
   }
 
   void Set (int val) {
