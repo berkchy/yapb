@@ -106,6 +106,11 @@ YSTL_EXPORT int GetEntityAPI (gamefuncs_t *table, int interface_version) {
     // server is enabled. Here is a good place to do our own bot::game session initialization, and
     // to register by the engine side the server commands we need to administrate our bot::bots
 
+    // The engine only creates the server cvars once the game dll is loaded, so
+    // the pass from Game::Initialize() can leave every pointer unresolved by the
+    // time we get here. Resolve them again before anything reads a value.
+    bot::game.RegisterCvars (true);
+
     // execute main config
     bot::conf.LoadMainConfig (true);
     bot::conf.AdjustWeaponPrices ();
