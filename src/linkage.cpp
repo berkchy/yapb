@@ -114,11 +114,11 @@ YSTL_EXPORT int GetEntityAPI (gamefuncs_t *table, int interface_version) {
     // client sat on a black screen right after the plugin was dlopen'ed, with
     // nothing in the engine log), and there is no way to tell which of the three
     // steps below was responsible without a trace.
-    ystl::logger.print ("[yapb] GameInit: registering cvars...");
+    bot::game.SendServerMessage ("[yapb] GameInit: registering cvars...\n");
     bot::game.RegisterCvars (true);
-    ystl::logger.print ("[yapb] GameInit: loading main config...");
+    bot::game.SendServerMessage ("[yapb] GameInit: loading main config...\n");
     bot::conf.LoadMainConfig (true);
-    ystl::logger.print ("[yapb] GameInit: adjusting weapon prices...");
+    bot::game.SendServerMessage ("[yapb] GameInit: adjusting weapon prices...\n");
     bot::conf.AdjustWeaponPrices ();
 
     // print info about dll
