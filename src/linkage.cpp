@@ -109,10 +109,16 @@ YSTL_EXPORT int GetEntityAPI (gamefuncs_t *table, int interface_version) {
     // The engine only creates the server cvars once the game dll is loaded, so
     // the pass from Game::Initialize() can leave every pointer unresolved by the
     // time we get here. Resolve them again before anything reads a value.
+    //
+    // The stage prints are temporary: on xash3d this call never came back (the
+    // client sat on a black screen right after the plugin was dlopen'ed, with
+    // nothing in the engine log), and there is no way to tell which of the three
+    // steps below was responsible without a trace.
+    ystl::logger.print ("[yapb] GameInit: registering cvars...");
     bot::game.RegisterCvars (true);
-
-    // execute main config
+    ystl::logger.print ("[yapb] GameInit: loading main config...");
     bot::conf.LoadMainConfig (true);
+    ystl::logger.print ("[yapb] GameInit: adjusting weapon prices...");
     bot::conf.AdjustWeaponPrices ();
 
     // print info about dll
