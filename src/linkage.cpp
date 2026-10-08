@@ -7,6 +7,32 @@
 
 #include <yapb.h>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
+/*
+========================
+boot_trace
+
+The xash3d boot sequence went silent right after metamod reported the plugin
+dlopen'ed, so we cannot tell from the log which of the steps between that and
+Postload() is responsible. Print straight to logcat: the engine logger is not up
+yet this early, and stderr is discarded by the Android runtime.
+========================
+*/
+static void boot_trace (const char *stage) {
+#if defined(__ANDROID__)
+  __android_log_write (ANDROID_LOG_INFO, "yapb", stage);
+#else
+  fprintf (stderr, "[yapb] boot: %s\n", stage);
+#endif
+}
+
+__attribute__ ((constructor)) static void yapb_lib_loaded () {
+  boot_trace ("00 library constructors ran");
+}
+
 gamefuncs_t dllapi {};
 newgamefuncs_t newapi {};
 enginefuncs_t engfuncs {};
@@ -984,6 +1010,8 @@ YSTL_EXPORT int Meta_Attach (PLUG_LOADTIME now, metamod_funcs_t *function_table,
     .pfnGetEngineFunctions_Post = GetEngineFunctionsPost,
   };
 
+  boot_trace ("10 Meta_Attach entered");
+
   if (now > Plugin_info.loadable) {
     gpMetaUtilFuncs->pfnLogError (PLID, "%s: plugin NOT attaching (can't load plugin right now)", Plugin_info.name);
     return HLFalse; // returning FALSE prevents metamod from attaching this plugin
@@ -994,6 +1022,7 @@ YSTL_EXPORT int Meta_Attach (PLUG_LOADTIME now, metamod_funcs_t *function_table,
   memcpy (function_table, &metamod_function_table, sizeof (metamod_funcs_t));
   gpGamedllFuncs = p_gamedll_funcs;
 
+  boot_trace ("11 Meta_Attach leaving");
   return HLTrue; // returning true enables metamod to attach this plugin
 }
 
@@ -1038,7 +1067,9 @@ YSTL_EXPORT void Meta_Init () {
   // this function is called by metamod, before any other interface functions. Purpose of this
   // function to give plugin a chance to determine is plugin running under metamod or not
 
+  boot_trace ("12 Meta_Init entered");
   bot::game.AddGameFlag (bot::GameFlags::Metamod);
+  boot_trace ("13 Meta_Init leaving");
 }
 
 // games GiveFnptrsToDll is a bit tricky
@@ -1071,9 +1102,12 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll (enginefuncs_t *table, globalvars_t *glob) {
   // initialization stuff will be done later, when we'll be certain to have a multilayer bot::game
 
   // get the engine functions from the bot::game
+  boot_trace ("01 GiveFnptrsToDll entered");
   memcpy (&engfuncs, table, sizeof (enginefuncs_t));
   globals = glob;
+  boot_trace ("02 engine tables copied");
 
+  boot_trace ("03 calling Postload");
   if (bot::game.Postload ()) {
     return;
   }
