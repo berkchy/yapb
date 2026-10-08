@@ -6,6 +6,7 @@
 //
 
 #include <yapb.h>
+#include "boot_trace.h"
 
 namespace bot {
 
@@ -1106,13 +1107,17 @@ bool Game::LoadCsBinary () {
 }
 
 bool Game::Postload () {
+  boot_trace ("20 Postload entered");
+
   bstor.CheckInstallLocation (); // check if installed just as in manual
+  boot_trace ("21 install location checked");
 
   // register logger
   ystl::logger.initialize (bstor.BuildPath (StorageFile::LogFile), [] (const char *msg) {
     // log lines are runtime data, not translatable language keys, so they bypass the translation
     game.SendServerMessage (ystl::strings.format ("%s\n", msg));
   });
+  boot_trace ("22 logger initialized");
 
   auto ensure_bot_path_exists = [] (ystl::StringRef dir1, ystl::StringRef dir2) {
     ystl::File::make_path (ystl::strings.join_path (bstor.GetRunningPath (), dir1, dir2).chars ());
@@ -1124,9 +1129,11 @@ bool Game::Postload () {
   ensure_bot_path_exists (folders.data, folders.graph);
   ensure_bot_path_exists (folders.data, folders.logs);
   ensure_bot_path_exists (folders.data, folders.podbot);
+  boot_trace ("23 bot directories ensured");
 
   // set out user agent for http stuff
   ystl::http.set_user_agent (ystl::strings.format ("%s/%s", product.name, product.version));
+  boot_trace ("24 http user agent set");
 
 #if defined(YSTL_WITH_TLS)
   // tls certificate bundle shipped with the package, without it https is unverified
@@ -1134,17 +1141,22 @@ bool Game::Postload () {
     ystl::logger.error ("https ca bundle is missing, tls connections will be unverified");
   }
 #endif
+  boot_trace ("25 tls ca checked");
 
   // set the app name
   ystl::plat.set_app_name (product.name.chars ());
+  boot_trace ("26 app name set");
 
   DetectXashEngine ();
+  boot_trace ("27 engine detected");
 
   // register bot cvars
   RegisterCvars ();
+  boot_trace ("28 bot cvars registered");
 
   // register bot commands
   ctrl.RegisterCommands ();
+  boot_trace ("29 bot commands registered");
 
   // handle prefixes
   constexpr ystl::FixedArray<ystl::StringRef, 2> prefixes { product.cmd_pri, product.cmd_sec };

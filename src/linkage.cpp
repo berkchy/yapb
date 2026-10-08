@@ -7,27 +7,7 @@
 
 #include <yapb.h>
 
-#if defined(__ANDROID__)
-#include <android/log.h>
-#endif
-
-/*
-========================
-boot_trace
-
-The xash3d boot sequence went silent right after metamod reported the plugin
-dlopen'ed, so we cannot tell from the log which of the steps between that and
-Postload() is responsible. Print straight to logcat: the engine logger is not up
-yet this early, and stderr is discarded by the Android runtime.
-========================
-*/
-static void boot_trace (const char *stage) {
-#if defined(__ANDROID__)
-  __android_log_write (ANDROID_LOG_INFO, "yapb", stage);
-#else
-  fprintf (stderr, "[yapb] boot: %s\n", stage);
-#endif
-}
+#include "boot_trace.h"
 
 __attribute__ ((constructor)) static void yapb_lib_loaded () {
   boot_trace ("00 library constructors ran");
