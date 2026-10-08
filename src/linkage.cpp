@@ -1008,6 +1008,17 @@ YSTL_EXPORT int Meta_Detach (PLUG_LOADTIME now, PL_UNLOAD_REASON reason) {
   // stop the bot::worker
   bot::worker.Shutdown ();
 
+  // KickEveryone() starts a countdown timer, and every countdown reads the
+  // engine's global time through the pointer captured in LevelInitialize. By
+  // the time plugins detach that engine memory is already gone (globalvars_t
+  // is null on a session that never got a map, which is exactly what happens
+  // when the game is closed and restarted), so the read faults and takes the
+  // whole process down. Park the timer on storage we own for the rest of the
+  // shutdown: the value is meaningless here anyway, the timers only gated
+  // quota management and the bots are gone either way.
+  static float detach_clock = 0.0f;
+  ystl::timer_source.set_time_address (&detach_clock);
+
   // kick all bot::bots off this server
   bot::bots.KickEveryone (true);
 
