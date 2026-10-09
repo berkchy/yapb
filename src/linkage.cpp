@@ -112,20 +112,22 @@ YSTL_EXPORT int GetEntityAPI (gamefuncs_t *table, int interface_version) {
     // server is enabled. Here is a good place to do our own bot::game session initialization, and
     // to register by the engine side the server commands we need to administrate our bot::bots
 
-    // The engine only creates the server cvars once the game dll is loaded, so
-    // the pass from Game::Initialize() can leave every pointer unresolved by the
-    // time we get here. Resolve them again before anything reads a value.
+    // Nothing game-cvar related happens here any more. The engine creates the
+    // server cvars in the *game dll's* GameInit, and under metamod this hook
+    // runs ahead of it (the chain continues only at the RETURN_META below).
+    // Resolving them at this point therefore saw an empty cvar table, and
+    // RegisterCvars (true) would fall into its "cvar missing, create it myself"
+    // branch for every Var::GameRef with reg_missing set - mp_startmoney,
+    // mp_buytime, mp_freezetime and mp_maxmoney. That is a name collision with
+    // the game dll, which registers the very same four a moment later and is
+    // refused with "can't register variable ..., is already defined".
     //
-    // The stage prints are temporary: on xash3d this call never came back (the
-    // client sat on a black screen right after the plugin was dlopen'ed, with
-    // nothing in the engine log), and there is no way to tell which of the three
-    // steps below was responsible without a trace.
-    bot::game.SendServerMessage ("[yapb] GameInit: registering cvars...\n");
-    bot::game.RegisterCvars (true);
-    bot::game.SendServerMessage ("[yapb] GameInit: loading main config...\n");
-    bot::conf.LoadMainConfig (true);
-    bot::game.SendServerMessage ("[yapb] GameInit: adjusting weapon prices...\n");
-    bot::conf.AdjustWeaponPrices ();
+    // The loser of that race kept its struct zeroed: engine's
+    // Cvar_RegisterVariable() bails out before var->value = Q_atof(var->string),
+    // so ReGameDLL's mp_startmoney stayed 0 and every player spawned with
+    // AddAccount(0) - no money, and no buy menu. Resolving in ServerActivate,
+    // which the engine calls after the dll's GameInit (sv_init.c, SV_ActivateServer),
+    // finds the real cvars and leaves the game's own registration alone.
 
     // print info about dll
     bot::game.PrintBotVersion ();
@@ -345,6 +347,24 @@ YSTL_EXPORT int GetEntityAPI (gamefuncs_t *table, int interface_version) {
     // perfect place for doing initialization stuff for our bot::bots, such as reading the BSP data,
     // loading the bot profiles, and drawing the world map (ie, filling the navigation hashtable)
     // Once this function has been called, the server can be considered as "running"
+
+    // First activation only, matching the one-shot call this replaces.
+    // The server cvars enter the engine's list during the dll's GameInit and
+    // stay there across a mapchange, so re-resolving them per map would find
+    // the same pointers; only LoadMainConfig would actually redo work, and
+    // doing that on every map is a behaviour change nobody asked for.
+    static bool initialised = false;
+
+    if (!initialised) {
+      initialised = true;
+
+      bot::game.SendServerMessage ("[yapb] ServerActivate: registering cvars...\n");
+      bot::game.RegisterCvars (true);
+      bot::game.SendServerMessage ("[yapb] ServerActivate: loading main config...\n");
+      bot::conf.LoadMainConfig (true);
+      bot::game.SendServerMessage ("[yapb] ServerActivate: adjusting weapon prices...\n");
+      bot::conf.AdjustWeaponPrices ();
+    }
 
     if (bot::game.Is (bot::GameFlags::Metamod)) {
       RETURN_META (MRES_IGNORED);
